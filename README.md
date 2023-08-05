@@ -2,7 +2,9 @@
 This test suite is intended for preliminary testing, as we will apparently be getting an official test suite at a later time.
 
 # How to install
-TODO
+```bash
+git clone https://github.com/christo-sw/CS343-P1-TestSuite.git
+```
 
 # How to use
 TODO
