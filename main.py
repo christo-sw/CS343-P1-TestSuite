@@ -143,7 +143,8 @@ def get_missing_values_from_user_and_update_file(config_file, port, token, num_t
 
     if token is None:
         token = get_token()
-        config_file.write(f"TOKEN={token}\n")
+        if token != "":
+            config_file.write(f"TOKEN={token}\n")
 
     if num_tests is None:
         num_tests = get_num_tests()
@@ -177,7 +178,6 @@ def get_random_users(num_tests, headers):
         exit()
 
     user_list = []
-    print(users.json())
     for user in users.json():
         user_list.append(user["login"])
 
