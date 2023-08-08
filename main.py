@@ -2,6 +2,18 @@ import json.decoder
 import random
 import requests
 
+from termcolor import colored, cprint
+
+
+def print_success(msg):
+    success_banner = colored("PASSED", "white", "on_green")
+    print(f"\t{success_banner}\t" + msg)
+
+
+def print_failure(msg):
+    failure_banner = colored("FAILED", "white", "on_red")
+    print(f"\t{failure_banner}\t" + msg)
+
 
 def get_port() -> str:
     while True:
@@ -39,17 +51,18 @@ def get_config_file(filename):
 
     try:
         config_file = open(filename, "r+")
+        return config_file
     except IOError:
-        open(filename, "x")
-        return get_config_file(filename)
-    else:
+        config_file = open(filename, "x")
+        config_file.close()
+        config_file = get_config_file(filename)
         return config_file
 
 
 def get_values_from_file(config_file) -> (str, str, int):
-    port = ""
-    token = ""
-    num_tests = -1
+    port = None
+    token = None
+    num_tests = None
 
     lines = config_file.readlines()
 
@@ -86,7 +99,6 @@ def get_values_from_file(config_file) -> (str, str, int):
 
 
 def get_missing_values_from_user_and_update_file(config_file, port, token, num_tests) -> (str, str, int):
-
     if port is None:
         port = get_port()
         config_file.write(f"PORT={port}\n")
@@ -102,18 +114,17 @@ def get_missing_values_from_user_and_update_file(config_file, port, token, num_t
     return port, token, num_tests
 
 
-def test():
+def get_test_parameters_from_config_file() -> (str, str, int):
     config_file = get_config_file("config.txt")
     (port, token, num_tests) = get_values_from_file(config_file)
     (port, token, num_tests) = get_missing_values_from_user_and_update_file(config_file, port, token, num_tests)
     config_file.close()
+    return port, token, num_tests
 
+
+def get_random_users(num_tests, headers):
     random_num = random.randint(0, 100000000)
     endpoint = "https://api.github.com/users?since=" + str(random_num) + "&per_page=" + str(num_tests)
-
-    headers = {}
-    if token != "":
-        headers = {"Authorization": "Bearer " + token}
 
     users = None
     try:
@@ -121,75 +132,215 @@ def test():
     except requests.exceptions.ConnectionError:
         print("ERROR: Could not get response from GitHub. Is your internet working? Cannot run test suite.")
         exit()
+    return users.json()
 
+
+def test_user(username, headers, port, skip_count, pass_count, fail_count) -> (int, int, int):
+    # Get local and ground truth responses
+    local_response = None
+    try:
+        local_response = requests.get("http://localhost:" + port + "/users/" + username)
+    except requests.exceptions.ConnectionError:
+        print("ERROR: Could not get response from local server. Is your server running? Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    ground_truth_response = None
+    try:
+        ground_truth_response = requests.get("https://api.github.com/users/" + username, headers=headers)
+    except requests.exceptions.ConnectionError:
+        print("ERROR: Could not get response from GitHub. Is your internet working? Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    # Parse local and ground truth data from responses
+    local_data = None
+    try:
+        local_data = local_response.json()
+    except json.decoder.JSONDecodeError:
+        print("ERROR: Could not parse local response into JSON. Ensure your response is not malformed and that"
+              " your server has not crashed. Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    ground_truth_data = None
+    try:
+        ground_truth_data = ground_truth_response.json()
+    except json.decoder.JSONDecodeError:
+        print("ERROR: Could not parse the GitHub API response into JSON. This is a highly unexpected error."
+              "Debug manually. Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    if local_response.status_code == ground_truth_response.status_code:
+        pass_count = pass_count + 1
+        print_success(f"Status Code")
+    else:
+        fail_count = fail_count + 1
+        print_failure(f"Status Code -> Expected {ground_truth_response.status_code}, "
+              f"found {local_response.status_code}")
+
+    for val in local_data:
+        if local_data[val] == ground_truth_data[val]:
+            pass_count = pass_count + 1
+            print_success(f"{val}")
+        else:
+            fail_count = fail_count + 1
+            print_failure(f"{val} -> Expected {ground_truth_data[val]}, found {local_data[val]} ")
+
+    return skip_count, pass_count, fail_count
+
+
+def test_user_repos(username, headers, port, skip_count, pass_count, fail_count) -> (int, int, int):
+    # Get local and ground truth responses
+    local_response = None
+    try:
+        local_response = requests.get("http://localhost:" + port + "/users/" + username + "/repos")
+    except requests.exceptions.ConnectionError:
+        print("ERROR: Could not get response from local server. Is your server running? Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    ground_truth_response = None
+    try:
+        ground_truth_response = requests.get("https://api.github.com/users/" + username + "/repos", headers=headers)
+    except requests.exceptions.ConnectionError:
+        print("ERROR: Could not get response from GitHub. Is your internet working? Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    # Parse local and ground truth data from responses
+    local_data = None
+    try:
+        local_data = local_response.json()
+    except json.decoder.JSONDecodeError:
+        print("ERROR: Could not parse local response into JSON. Ensure your response is not malformed and that"
+              " your server has not crashed. Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    ground_truth_data = None
+    try:
+        ground_truth_data = ground_truth_response.json()
+    except json.decoder.JSONDecodeError:
+        print("ERROR: Could not parse the GitHub API response into JSON. This is a highly unexpected error."
+              "Debug manually. Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    # Test for response code match
+    if local_response.status_code == ground_truth_response.status_code:
+        pass_count = pass_count + 1
+        print_success(f"Status Code")
+    else:
+        fail_count = fail_count + 1
+        print_failure(f"Status Code -> Expected {ground_truth_response.status_code}, "
+              f"found {local_response.status_code}")
+
+    local_data_len = None
+    try:
+        local_data_len = len(local_data)
+    except AttributeError:
+        local_data_len = 0  # 404 Message
+
+    ground_truth_data_len = None
+    try:
+        ground_truth_data_len = len(ground_truth_data)
+    except AttributeError:
+        ground_truth_data_len = 0  # 404 Message
+
+    # Test for repo count match
+    if local_data_len == ground_truth_data_len:
+        pass_count = pass_count + 1
+        print_success(f"Repo Count")
+    else:
+        fail_count = fail_count + 1
+        print_failure(f"Repo Count -> Expected {ground_truth_data_len}, "
+                      f"found {local_data_len}")
+
+    for i in range(0, ground_truth_data_len):
+        local_repo = local_data[i]
+        ground_truth_repo = ground_truth_data[i]
+
+        print(f"\n=> REPO {ground_truth_repo['name']}")
+
+        for val in local_repo:
+            if local_repo[val] == ground_truth_repo[val]:
+                pass_count = pass_count + 1
+                print_success(f"{val}")
+            else:
+                fail_count = fail_count + 1
+                print_failure(f"{val} -> Expected {ground_truth_repo[val]}, found {local_repo[val]}")
+
+    return skip_count, pass_count, fail_count
+
+
+def test_random_users(port, token, num_tests):
+    # Use GitHub auth token if available
+    headers = {}
+    if token != "":
+        headers = {"Authorization": "Bearer " + token}
+
+    users = get_random_users(num_tests, headers)
+
+    # Testing metrics
     i = 0
     skip_count = 0
     pass_count = 0
     fail_count = 0
     test_count = 0
 
-    for user in users.json():
+    # Run through all the random users and test each one-by-one
+    for user in users:
         i = i + 1
-        print(f"============ TEST {i} - {user['login']} [{user['type']}] ============")
-
         test_count = test_count + 1
-
         username = user["login"]
+        print(f"\n============ TEST {i} - {username} [{user['type']}] ============")
 
-        local_response = None
-        try:
-            local_response = requests.get("http://localhost:" + port + "/users/" + username)
-        except requests.exceptions.ConnectionError:
-            print("ERROR: Could not get response from local server. Is your server running? Skipping test.")
-            skip_count = skip_count + 1
-            continue
+        (skip_count, pass_count, fail_count) = \
+            test_user(username, headers, port, skip_count, pass_count, fail_count)
 
-        ground_truth_response = None
-        try:
-            ground_truth_response = requests.get("https://api.github.com/users/" + username, headers=headers)
-        except requests.exceptions.ConnectionError:
-            print("ERROR: Could not get response from GitHub. Is your internet working? Skipping test.")
-            skip_count = skip_count + 1
-            continue
-
-        local_data = None
-        try:
-            local_data = local_response.json()
-        except json.decoder.JSONDecodeError:
-            print("ERROR: Could not parse local response into JSON. Ensure your response is not malformed and that"
-                  " your server has not crashed. Skipping test.")
-            skip_count = skip_count + 1
-            continue
-
-        ground_truth_data = None
-        try:
-            ground_truth_data = ground_truth_response.json()
-        except json.decoder.JSONDecodeError:
-            print("ERROR: Could not parse the GitHub API response into JSON. This is a highly unexpected error."
-                  "Debug manually. Skipping test.")
-            skip_count = skip_count + 1
-            continue
-
-        if local_response.status_code == ground_truth_response.status_code:
-            pass_count = pass_count + 1
-            print(f"\tPASSED\tStatus Code")
-        else:
-            fail_count = fail_count + 1
-            print(f"\tFAILED\tStatus Code -> Expected {ground_truth_response.status_code},"
-                  f"found {local_response.status_code}")
-
-        for val in local_data:
-            if local_data[val] == ground_truth_data[val]:
-                pass_count = pass_count + 1
-                print(f"\tPASSED\t{val}")
-            else:
-                fail_count = fail_count + 1
-                print(f"\tFAILED\t{val} -> Expected {ground_truth_data[val]}, found {local_data[val]} ")
-
-    print("")
-    print(f"============ TEST RESULTS ============")
+    # Print test results
+    print(f"\n============ TEST RESULTS ============")
     print(f"PASSED: \t\t\t{pass_count}\nFAILED: \t\t\t{fail_count}\nSKIPPED: \t\t\t{skip_count}")
 
 
+def test_random_user_repos(port, token, num_tests):
+    # Use GitHub auth token if available
+    headers = {}
+    if token != "":
+        headers = {"Authorization": "Bearer " + token}
+
+    users = get_random_users(num_tests, headers)
+
+    # Testing metrics
+    i = 0
+    skip_count = 0
+    pass_count = 0
+    fail_count = 0
+    test_count = 0
+
+    # Run through all the random users and test each one's repos
+    for user in users:
+        i = i + 1
+        test_count = test_count + 1
+        username = user["login"]
+        print(f"\n============ TEST {i} - {username} [{user['type']}] ============")
+
+        (skip_count, pass_count, fail_count) = \
+            test_user_repos(username, headers, port, skip_count, pass_count, fail_count)
+
+    # Print test results
+    print(f"\n============ TEST RESULTS ============")
+    print(f"PASSED: \t\t\t{pass_count}\nFAILED: \t\t\t{fail_count}\nSKIPPED: \t\t\t{skip_count}")
+
+
+def decide_test_mode():
+    (port, token, num_tests) = get_test_parameters_from_config_file()
+    # test_random_users(port, token, num_tests)
+    test_random_user_repos(port, token, num_tests)
+    # TODO
+
+
 if __name__ == '__main__':
-    test()
+    decide_test_mode()
