@@ -152,11 +152,11 @@ def get_missing_values_from_user_and_update_file(config_file, port, token, num_t
 
     if num_tests is None:
         num_tests = get_num_tests()
-        config_file.write(f"NUM_TESTS={num_tests}")
+        config_file.write(f"NUM_TESTS={num_tests}\n")
 
     if test_type is None:
         test_type = get_test_type()
-        config_file.write(f"TEST_TYPE={test_type}")
+        config_file.write(f"TEST_TYPE={test_type}\n")
 
     return port, token, num_tests, test_type
 
