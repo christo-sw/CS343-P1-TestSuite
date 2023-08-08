@@ -46,6 +46,20 @@ def get_num_tests() -> int:
             return num_tests
 
 
+def get_test_type() -> int:
+    while True:
+        test_type = input("Test type (0 - Users, 1 - Repos, 2 - Both): ")
+        try:
+            test_type = int(test_type)
+        except ValueError:
+            print("Please enter a valid number of tests")
+        else:
+            if test_type < 0 or test_type > 2:
+                print("Please enter a valid test type")
+            else:
+                return test_type
+
+
 def get_config_file(filename):
     config_file = None
 
@@ -59,10 +73,12 @@ def get_config_file(filename):
         return config_file
 
 
-def get_values_from_file(config_file) -> (str, str, int):
+def get_values_from_file(config_file) -> (str, str, int, list, int):
     port = None
     token = None
     num_tests = None
+    users = None
+    test_type = None
 
     lines = config_file.readlines()
 
@@ -95,10 +111,32 @@ def get_values_from_file(config_file) -> (str, str, int):
                             elif num_tests > 100:
                                 num_tests = 100
 
-    return port, token, num_tests
+                case "users":
+                    if len(key_and_val) > 1:
+                        users = key_and_val[1].strip()
+                        try:
+                            users = json.loads(users)
+                        except json.decoder.JSONDecodeError:
+                            users = None
+
+                case "test_type":
+                    if len(key_and_val) > 1:
+                        test_type = key_and_val[1].strip()
+                        try:
+                            test_type = int(test_type)
+                        except ValueError:
+                            test_type = None
+                        else:
+                            if test_type < 0 or test_type > 2:
+                                print("ERROR: Invalid type of test selected. Please choose either 0, 1, or 2")
+                                print("[0 - Users, 1 - Repos, 2 - Both")
+                                exit()
+
+    return port, token, num_tests, users, test_type
 
 
-def get_missing_values_from_user_and_update_file(config_file, port, token, num_tests) -> (str, str, int):
+def get_missing_values_from_user_and_update_file(config_file, port, token, num_tests, test_type) \
+        -> (str, str, int, int):
     if port is None:
         port = get_port()
         config_file.write(f"PORT={port}\n")
@@ -111,15 +149,20 @@ def get_missing_values_from_user_and_update_file(config_file, port, token, num_t
         num_tests = get_num_tests()
         config_file.write(f"NUM_TESTS={num_tests}")
 
-    return port, token, num_tests
+    if test_type is None:
+        test_type = get_test_type()
+        config_file.write(f"TEST_TYPE={test_type}")
+
+    return port, token, num_tests, test_type
 
 
-def get_test_parameters_from_config_file() -> (str, str, int):
+def get_test_parameters_from_config_file() -> (str, str, int, list, int):
     config_file = get_config_file("config.txt")
-    (port, token, num_tests) = get_values_from_file(config_file)
-    (port, token, num_tests) = get_missing_values_from_user_and_update_file(config_file, port, token, num_tests)
+    (port, token, num_tests, users, test_type) = get_values_from_file(config_file)
+    (port, token, num_tests, test_type) = \
+        get_missing_values_from_user_and_update_file(config_file, port, token, num_tests, test_type)
     config_file.close()
-    return port, token, num_tests
+    return port, token, num_tests, users, test_type
 
 
 def get_random_users(num_tests, headers):
@@ -132,7 +175,13 @@ def get_random_users(num_tests, headers):
     except requests.exceptions.ConnectionError:
         print("ERROR: Could not get response from GitHub. Is your internet working? Cannot run test suite.")
         exit()
-    return users.json()
+
+    user_list = []
+    print(users.json())
+    for user in users.json():
+        user_list.append(user["login"])
+
+    return user_list
 
 
 def test_user(username, headers, port, skip_count, pass_count, fail_count) -> (int, int, int):
@@ -178,7 +227,7 @@ def test_user(username, headers, port, skip_count, pass_count, fail_count) -> (i
     else:
         fail_count = fail_count + 1
         print_failure(f"Status Code -> Expected {ground_truth_response.status_code}, "
-              f"found {local_response.status_code}")
+                      f"found {local_response.status_code}")
 
     for val in local_data:
         if local_data[val] == ground_truth_data[val]:
@@ -235,7 +284,7 @@ def test_user_repos(username, headers, port, skip_count, pass_count, fail_count)
     else:
         fail_count = fail_count + 1
         print_failure(f"Status Code -> Expected {ground_truth_response.status_code}, "
-              f"found {local_response.status_code}")
+                      f"found {local_response.status_code}")
 
     local_data_len = None
     try:
@@ -275,13 +324,14 @@ def test_user_repos(username, headers, port, skip_count, pass_count, fail_count)
     return skip_count, pass_count, fail_count
 
 
-def test_random_users(port, token, num_tests):
+def test_users(port, token, num_tests, users):
     # Use GitHub auth token if available
     headers = {}
     if token != "":
         headers = {"Authorization": "Bearer " + token}
 
-    users = get_random_users(num_tests, headers)
+    if users is None:
+        users = get_random_users(num_tests, headers)
 
     # Testing metrics
     i = 0
@@ -291,11 +341,10 @@ def test_random_users(port, token, num_tests):
     test_count = 0
 
     # Run through all the random users and test each one-by-one
-    for user in users:
+    for username in users:
         i = i + 1
         test_count = test_count + 1
-        username = user["login"]
-        print(f"\n============ TEST {i} - {username} [{user['type']}] ============")
+        print(f"\n============ TEST {i} - {username} ============")
 
         (skip_count, pass_count, fail_count) = \
             test_user(username, headers, port, skip_count, pass_count, fail_count)
@@ -305,13 +354,14 @@ def test_random_users(port, token, num_tests):
     print(f"PASSED: \t\t\t{pass_count}\nFAILED: \t\t\t{fail_count}\nSKIPPED: \t\t\t{skip_count}")
 
 
-def test_random_user_repos(port, token, num_tests):
+def test_repos(port, token, num_tests, users):
     # Use GitHub auth token if available
     headers = {}
     if token != "":
         headers = {"Authorization": "Bearer " + token}
 
-    users = get_random_users(num_tests, headers)
+    if users is None:
+        users = get_random_users(num_tests, headers)
 
     # Testing metrics
     i = 0
@@ -321,11 +371,10 @@ def test_random_user_repos(port, token, num_tests):
     test_count = 0
 
     # Run through all the random users and test each one's repos
-    for user in users:
+    for username in users:
         i = i + 1
         test_count = test_count + 1
-        username = user["login"]
-        print(f"\n============ TEST {i} - {username} [{user['type']}] ============")
+        print(f"\n============ TEST {i} - {username} ============")
 
         (skip_count, pass_count, fail_count) = \
             test_user_repos(username, headers, port, skip_count, pass_count, fail_count)
@@ -336,10 +385,19 @@ def test_random_user_repos(port, token, num_tests):
 
 
 def decide_test_mode():
-    (port, token, num_tests) = get_test_parameters_from_config_file()
-    # test_random_users(port, token, num_tests)
-    test_random_user_repos(port, token, num_tests)
-    # TODO
+    (port, token, num_tests, users, test_type) = get_test_parameters_from_config_file()
+
+    # Test type should always be one of these three values
+    match test_type:
+        case 0:
+            test_users(port, token, num_tests, users)
+
+        case 1:
+            test_repos(port, token, num_tests, users)
+
+        case 2:
+            test_users(port, token, num_tests, users)
+            test_repos(port, token, num_tests, users)
 
 
 if __name__ == '__main__':
