@@ -27,7 +27,12 @@ def get_port() -> str:
 
 
 def get_token() -> str:
-    return input("GitHub API Token (basic), or just press enter to leave blank: ")
+    token = input("GitHub API Token (basic), or just press enter to leave blank: ")
+
+    if token.strip() != "":
+        return token.strip()
+    else:
+        return "_"
 
 
 def get_num_tests() -> int:
@@ -143,8 +148,7 @@ def get_missing_values_from_user_and_update_file(config_file, port, token, num_t
 
     if token is None:
         token = get_token()
-        if token != "":
-            config_file.write(f"TOKEN={token}\n")
+        config_file.write(f"TOKEN={token}\n")
 
     if num_tests is None:
         num_tests = get_num_tests()
@@ -327,7 +331,7 @@ def test_user_repos(username, headers, port, skip_count, pass_count, fail_count)
 def test_users(port, token, num_tests, users):
     # Use GitHub auth token if available
     headers = {}
-    if token != "":
+    if token != "_":
         headers = {"Authorization": "Bearer " + token}
 
     if users is None:
@@ -357,7 +361,7 @@ def test_users(port, token, num_tests, users):
 def test_repos(port, token, num_tests, users):
     # Use GitHub auth token if available
     headers = {}
-    if token != "":
+    if token != "_":
         headers = {"Authorization": "Bearer " + token}
 
     if users is None:
