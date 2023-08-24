@@ -1,5 +1,7 @@
 import json.decoder
 import random
+import string
+
 import requests
 
 from termcolor import colored, cprint
@@ -259,7 +261,17 @@ def test_user(username, headers, port, skip_count, pass_count, fail_count) -> (i
             print_success(f"{val}")
         else:
             fail_count = fail_count + 1
-            print_failure(f"{val} -> Expected {ground_truth_data[val]}, found {local_data[val]} ")
+
+            # String formatting to differentiate between ints and strings
+            ground_truth_string = str(ground_truth_data[val])
+            if isinstance(ground_truth_data[val], str):
+                ground_truth_string = f"\"{ground_truth_string}\""
+
+            local_string = str(local_data[val])
+            if isinstance(local_data[val], str):
+                local_string = f"\"{local_string}\""
+
+            print_failure(f"{val} -> Expected {ground_truth_string}, found {local_string} ")
 
     return skip_count, pass_count, fail_count
 
@@ -357,7 +369,17 @@ def test_user_repos(username, headers, port, skip_count, pass_count, fail_count)
                 print_success(f"{val}")
             else:
                 fail_count = fail_count + 1
-                print_failure(f"{val} -> Expected {ground_truth_repo[val]}, found {local_repo[val]}")
+
+                # String formatting to differentiate between ints and strings
+                ground_truth_string = str(ground_truth_repo[val])
+                if isinstance(ground_truth_repo[val], str):
+                    ground_truth_string = f"\"{ground_truth_string}\""
+
+                local_string = str(local_repo[val])
+                if isinstance(local_repo[val], str):
+                    local_string = f"\"{local_string}\""
+
+                print_failure(f"{val} -> Expected {ground_truth_string}, found {local_string}")
 
     return skip_count, pass_count, fail_count
 
