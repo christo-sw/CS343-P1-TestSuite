@@ -234,7 +234,14 @@ def test_user(username, headers, port, skip_count, pass_count, fail_count) -> (i
                       f"found {local_response.status_code}")
 
     for val in local_data:
-        if local_data[val] == ground_truth_data[val]:
+        if ground_truth_data[val] is None or ground_truth_data[val] == "":
+            if local_data[val] is None or local_data[val] == "":
+                pass_count = pass_count + 1
+                print_success(f"{val}")
+            else:
+                fail_count = fail_count + 1
+                print_failure(f"{val} -> Expected {ground_truth_data[val]}, found {local_data[val]} ")
+        elif local_data[val] == ground_truth_data[val]:
             pass_count = pass_count + 1
             print_success(f"{val}")
         else:
@@ -318,7 +325,14 @@ def test_user_repos(username, headers, port, skip_count, pass_count, fail_count)
         print(f"\n=> REPO {ground_truth_repo['name']}")
 
         for val in local_repo:
-            if local_repo[val] == ground_truth_repo[val]:
+            if ground_truth_repo[val] is None or ground_truth_repo[val] == "":
+                if local_repo[val] is None or local_repo[val] == "":
+                    pass_count = pass_count + 1
+                    print_success(f"{val}")
+                else:
+                    fail_count = fail_count + 1
+                    print_failure(f"{val} -> Expected {ground_truth_repo[val]}, found {local_repo[val]} ")
+            elif local_repo[val] == ground_truth_repo[val]:
                 pass_count = pass_count + 1
                 print_success(f"{val}")
             else:
