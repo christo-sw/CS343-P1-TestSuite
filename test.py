@@ -178,7 +178,13 @@ def get_random_users(num_tests, headers):
     try:
         users = requests.get(endpoint, headers=headers)
     except requests.exceptions.ConnectionError:
-        print("ERROR: Could not get response from GitHub. Is your internet working? Cannot run test suite.")
+        print("ERROR: Could not get response from GitHub. Is your internet working? Cannot run the test suite.")
+        exit()
+
+    # Check for rate limit
+    if users.status_code == 429:
+        print("The test suite hit the GitHub API rate limit. "
+              "Please wait a while, or add an API token if you have not yet done so. Cannot run the test suite.")
         exit()
 
     user_list = []
@@ -203,6 +209,13 @@ def test_user(username, headers, port, skip_count, pass_count, fail_count) -> (i
         ground_truth_response = requests.get("https://api.github.com/users/" + username, headers=headers)
     except requests.exceptions.ConnectionError:
         print("ERROR: Could not get response from GitHub. Is your internet working? Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    # Check for rate limit
+    if ground_truth_response.status_code == 429:
+        print("The test suite hit the GitHub API rate limit. "
+              "Please wait a while, or add an API token if you have not yet done so. Skipping test.")
         skip_count = skip_count + 1
         return skip_count, pass_count, fail_count
 
@@ -266,6 +279,13 @@ def test_user_repos(username, headers, port, skip_count, pass_count, fail_count)
         ground_truth_response = requests.get("https://api.github.com/users/" + username + "/repos", headers=headers)
     except requests.exceptions.ConnectionError:
         print("ERROR: Could not get response from GitHub. Is your internet working? Skipping test.")
+        skip_count = skip_count + 1
+        return skip_count, pass_count, fail_count
+
+    # Check for rate limit
+    if ground_truth_response.status_code == 429:
+        print("The test suite hit the GitHub API rate limit. "
+              "Please wait a while, or add an API token if you have not yet done so. Skipping test.")
         skip_count = skip_count + 1
         return skip_count, pass_count, fail_count
 
