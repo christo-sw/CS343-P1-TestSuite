@@ -92,52 +92,51 @@ def get_values_from_file(config_file) -> (str, str, int, list, int):
     if len(lines) != 0:
         for line in lines:
             key_and_val = line.split("=")
-            match key_and_val[0].lower():
-                case "port":
-                    if len(key_and_val) > 1:
-                        port = key_and_val[1].strip()
-                        try:
-                            int(port)
-                        except ValueError:
-                            port = None
+            if key_and_val[0].lower() == "port":
+                if len(key_and_val) > 1:
+                    port = key_and_val[1].strip()
+                    try:
+                        int(port)
+                    except ValueError:
+                        port = None
 
-                case "token":
-                    if len(key_and_val) > 1:
-                        token = key_and_val[1].strip()
+            elif key_and_val[0].lower() == "token":
+                if len(key_and_val) > 1:
+                    token = key_and_val[1].strip()
 
-                case "num_tests":
-                    if len(key_and_val) > 1:
-                        num_tests = key_and_val[1].strip()
-                        try:
-                            num_tests = int(num_tests)
-                        except ValueError:
-                            num_tests = None
-                        else:
-                            if num_tests <= 0:
-                                num_tests = 1
-                            elif num_tests > 100:
-                                num_tests = 100
+            elif key_and_val[0].lower() == "num_tests":
+                if len(key_and_val) > 1:
+                    num_tests = key_and_val[1].strip()
+                    try:
+                        num_tests = int(num_tests)
+                    except ValueError:
+                        num_tests = None
+                    else:
+                        if num_tests <= 0:
+                            num_tests = 1
+                        elif num_tests > 100:
+                            num_tests = 100
 
-                case "users":
-                    if len(key_and_val) > 1:
-                        users = key_and_val[1].strip()
-                        try:
-                            users = json.loads(users)
-                        except json.decoder.JSONDecodeError:
-                            users = None
+            elif key_and_val[0].lower() == "users":
+                if len(key_and_val) > 1:
+                    users = key_and_val[1].strip()
+                    try:
+                        users = json.loads(users)
+                    except json.decoder.JSONDecodeError:
+                        users = None
 
-                case "test_type":
-                    if len(key_and_val) > 1:
-                        test_type = key_and_val[1].strip()
-                        try:
-                            test_type = int(test_type)
-                        except ValueError:
-                            test_type = None
-                        else:
-                            if test_type < 0 or test_type > 2:
-                                print("ERROR: Invalid type of test selected. Please choose either 0, 1, or 2")
-                                print("[0 - Users, 1 - Repos, 2 - Both")
-                                exit()
+            elif key_and_val[0].lower() == "test_type":
+                if len(key_and_val) > 1:
+                    test_type = key_and_val[1].strip()
+                    try:
+                        test_type = int(test_type)
+                    except ValueError:
+                        test_type = None
+                    else:
+                        if test_type < 0 or test_type > 2:
+                            print("ERROR: Invalid type of test selected. Please choose either 0, 1, or 2")
+                            print("[0 - Users, 1 - Repos, 2 - Both")
+                            exit()
 
     return port, token, num_tests, users, test_type
 
@@ -466,16 +465,13 @@ def decide_test_mode():
     (port, token, num_tests, users, test_type) = get_test_parameters_from_config_file()
 
     # Test type should always be one of these three values
-    match test_type:
-        case 0:
-            test_users(port, token, num_tests, users)
-
-        case 1:
-            test_repos(port, token, num_tests, users)
-
-        case 2:
-            test_users(port, token, num_tests, users)
-            test_repos(port, token, num_tests, users)
+    if test_type == 0:
+        test_users(port, token, num_tests, users)
+    elif test_type == 1:
+        test_repos(port, token, num_tests, users)
+    elif test_type == 2:
+        test_users(port, token, num_tests, users)
+        test_repos(port, token, num_tests, users)
 
 
 if __name__ == '__main__':
