@@ -357,7 +357,25 @@ def test_user_repos(username, headers, port, skip_count, pass_count, fail_count)
         print(f"\n=> REPO {ground_truth_repo['name']}")
 
         for val in local_repo:
-            if ground_truth_repo[val] is None or ground_truth_repo[val] == "":
+            if val == "owner":
+                for nested_val in local_repo[val]:
+                    if local_repo[val][nested_val] == ground_truth_repo[val][nested_val]:
+                        pass_count = pass_count + 1
+                        print_success(f"{val}.{nested_val}")
+                    else:
+                        fail_count = fail_count + 1
+
+                        # String formatting to differentiate between ints and strings
+                        ground_truth_string = str(ground_truth_repo[val][nested_val])
+                        if isinstance(ground_truth_repo[val][nested_val], str):
+                            ground_truth_string = f"\"{ground_truth_string}\""
+
+                        local_string = str(local_repo[val][nested_val])
+                        if isinstance(local_repo[val][nested_val], str):
+                            local_string = f"\"{local_string}\""
+
+                        print_failure(f"{val}.{nested_val} -> Expected {ground_truth_string}, found {local_string}")
+            elif ground_truth_repo[val] is None or ground_truth_repo[val] == "":
                 if local_repo[val] is None or local_repo[val] == "":
                     pass_count = pass_count + 1
                     print_success(f"{val}")
