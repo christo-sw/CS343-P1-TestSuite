@@ -190,7 +190,12 @@ def get_random_users(num_tests, headers):
 
     user_list = []
     for user in users.json():
-        user_list.append(user["login"])
+        try:
+            user_list.append(user["login"])
+        except TypeError:
+            print("The test suite hit the GitHub API rate limit. "
+                  "Please wait a while, or add an API token if you have not yet done so. Cannot run the test suite.")
+            exit()
 
     return user_list
 
